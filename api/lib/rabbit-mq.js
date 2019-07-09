@@ -1,28 +1,34 @@
 const RABBIT_MQ_CLIENT = require('amqplib');
 const REDIS_CLIENT = require('./redis-client');
-const QUEUE_NAME = require('../constants').RABBIT_MQ_QUEUE;
 const todoList = require('../controllers/dbController');
+const Constants = require('../constants');
+const QUEUE_NAME = Constants.RABBIT_MQ_QUEUE;
 
+console.log(QUEUE_NAME);
 
 
 function startConsuming() {
-    RABBIT_MQ_CLIENT.connect('amqp://localhost').then((conn) => {
+    RABBIT_MQ_CLIENT.connect(Constants.RABBIT_QUEUE_CLIENT_URL).then((conn) => {
         return conn.createChannel();
-    }).then((ch) => {
-        return ch.assertQueue(QUEUE_NAME).then((ok) => {
-            return ch.consume(QUEUE_NAME, (msg) => {
+    }).then((channel) => {
+
+        return channel.assertQueue(QUEUE_NAME).then((ok) => {
+            return channel.consume(QUEUE_NAME, (msg) => {
                 if (msg !== null) {
-                    console.log("the message is" + msg.content.toString());
-                    REDIS_CLIENT.get(msg.content.toString()).then((result) => {
+                    var key = msg.content.toString();
+                    console.log("the key form queue  is" + key);
+                    REDIS_CLIENT.get(key).then((result) => {
                         return todoList.create_a_task(JSON.parse(result), function(err, data) {
                             if (err) {
                                 console.log(err);
                                 return ;
                             }
                             console.log("Data sucessfully entered data--" + data);
+                            REDIS_CLIENT.deleteKey(key);
+                            console.log("Key sucessfully deleted --" + key);
                         });
                     });
-                    ch.ack(msg);
+                    channel.ack(msg);
                 }
             });
         });

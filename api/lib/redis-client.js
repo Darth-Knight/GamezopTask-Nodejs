@@ -1,10 +1,12 @@
-const redis = require('redis');
+const redis = require('redis-url');
+const Constants = require('../constants');
 
-const {get} = function() {
+
+const {get, deleteKey} = function() {
     let redisClient;
     let redisConnected = false;
     function connect_to_redis(){
-        redisClient = redis.createClient();
+        redisClient = redis.createClient(Constants.REDIS_CLIENT_URL);
         redisClient.on('connect', function() {
             console.log('Redis client connected');
         });
@@ -27,10 +29,28 @@ const {get} = function() {
             });
         });
     }
-    return {get};
+    function deleteKey(key){
+        return new Promise((resolve, reject) => {
+            if (!redisConnected) {
+                redisConnected = true;
+                connect_to_redis();
+            }
+            return redisClient.del(key, function (error, result) {
+                if (error) {
+                    console.log(error);
+                    reject(error);
+                }
+                resolve(result);
+            });
+        });
+    }
+
+
+    return {get, deleteKey};
 }();
 
 
 module.exports = {
     get: get,
+    deleteKey:deleteKey
 };
